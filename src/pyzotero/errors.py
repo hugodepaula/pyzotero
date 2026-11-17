@@ -165,7 +165,10 @@ _ERROR_HINTS: dict[type[PyZoteroError], str] = {
     LocalAPIKeyRequiredError: (
         "Hint: call Zotero.authorize_local() to obtain a local API key. A key "
         "granted with 'Allow' rather than 'Always Allow' is single-use, and is "
-        "consumed by the first successful write."
+        "consumed by the first successful write, so a batch of writes fails on "
+        "its second request. For batch writes, have the user choose 'Always "
+        "Allow' and pass the key and server_id back to the constructor on "
+        "later runs."
     ),
     ServerIDMismatchError: (
         "Hint: the server_id in use belongs to a different Zotero instance or "

@@ -1293,6 +1293,25 @@ How to make your first local write
     zot.authorize_local('My Application')  # Zotero prompts the user
     zot.create_items([item])
 
+.. _localapi-howto-batch:
+
+How to run a batch of writes
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Reads need no key, so a program that reads first and writes later gets no warning that
+its writes are unauthorised: the batch's first write fails with
+:py:class:`LocalAPIKeyRequiredError`. Authorise **before** the batch, and have the user
+choose "Always Allow" — a single-use "Allow" key is consumed by the batch's first
+successful write, and every write after it fails. If that still happens mid-batch, the
+recovery recipe below re-authorises once and retries the failed call.
+
+.. code-block:: python
+
+    zot = Zotero('0', 'user', local=True)
+    zot.authorize_local('My Application')  # the user should choose "Always Allow"
+    for item in items:
+        zot.create_items([item])
+
 .. _localapi-howto-persist:
 
 How to keep write access across sessions
@@ -1312,6 +1331,8 @@ How to keep write access across sessions
     # on a later run
     zot = Zotero('0', 'user', local=True,
                  server_id=saved_server_id, local_api_key=saved_key)
+
+.. _localapi-howto-recover:
 
 How to recover from a consumed or revoked key
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
