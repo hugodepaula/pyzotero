@@ -370,6 +370,54 @@ class UploadTests(unittest.TestCase):
         self.assertTrue(mock_post.call_args.kwargs["trust_env"])
 
 
+class AttachmentPayloadTests(unittest.TestCase):
+    """Hand-built attachment payloads are normalised for the local API."""
+
+    def test_outgoing_supplies_item_type_and_orders_keys(self):
+        """A dict built in any order sends itemType and linkMode-before-filename"""
+        payload = {
+            "title": "paper.pdf",
+            "filename": "/data/paper.pdf",
+            "contentType": "application/pdf",
+            "linkMode": "imported_file",
+            "tags": [],
+        }
+        out = z.Zupload._outgoing(payload)
+        self.assertEqual(out["itemType"], "attachment")
+        keys = list(out)
+        self.assertLess(keys.index("linkMode"), keys.index("filename"))
+        self.assertEqual(out["filename"], "paper.pdf")
+        self.assertEqual(out["title"], "paper.pdf")
+        self.assertEqual(out["contentType"], "application/pdf")
+
+    def test_outgoing_keeps_explicit_item_type(self):
+        out = z.Zupload._outgoing({"itemType": "attachment", "filename": "a.pdf"})
+        self.assertEqual(out["itemType"], "attachment")
+        self.assertEqual(out["filename"], "a.pdf")
+
+    def test_attachment_simple_works_in_local_mode(self):
+        """attachment_simple no longer depends on /items/new; it sends a
+        well-ordered attachment item"""
+        mock = MockClient()
+        mock.register(
+            "POST",
+            f"{LOCAL}/users/0/items",
+            body=json.dumps({"success": {"0": "ITEMKEY"}}),
+        )
+        mock.register("POST", f"{LOCAL}/users/0/items/ITEMKEY/file", '{"exists": 1}')
+        zot = local_zotero(mock, server_id=SERVER_ID, local_api_key="abc123")
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "paper.pdf"
+            path.write_bytes(b"%PDF-fake")
+            result = zot.attachment_simple([str(path)])
+        self.assertEqual(len(result["unchanged"]), 1)
+        sent = mock.requests[0].json()[0]
+        self.assertEqual(sent["itemType"], "attachment")
+        self.assertEqual(sent["linkMode"], "imported_file")
+        self.assertLess(list(sent).index("linkMode"), list(sent).index("filename"))
+        self.assertEqual(sent["filename"], "paper.pdf")
+
+
 class ErrorMappingTests(unittest.TestCase):
     """401, 412 and 428 each cover more than one condition."""
 

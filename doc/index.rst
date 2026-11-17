@@ -1333,22 +1333,27 @@ persistent key in Zotero's settings. In both cases the next write raises
 How to add a file attachment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-:py:meth:`Zotero.attachment_simple()` and :py:meth:`Zotero.attachment_both()` are
-unavailable in local mode (see :ref:`localapi-differences`). Build the attachment
-dict yourself and pass it to :py:meth:`Zotero.upload_attachments()`, which works
-normally:
+:py:meth:`Zotero.attachment_simple()` and :py:meth:`Zotero.attachment_both()` work in
+local mode as well as on the web API:
+
+.. code-block:: python
+
+    zot.attachment_simple(['/path/to/paper.pdf'], parentid=parent_item_key)
+
+If you need control over the attachment item, build the dict yourself and pass it to
+:py:meth:`Zotero.upload_attachments()`. Pyzotero normalises hand-built payloads — it
+supplies ``itemType`` when absent, and orders the keys for the local API, which
+processes JSON properties in sequence — so the key order of your dict does not matter:
 
 .. code-block:: python
 
     attachment = {
-        'itemType': 'attachment',
         'linkMode': 'imported_file',
         'title': 'paper.pdf',
         'filename': '/path/to/paper.pdf',
         'contentType': 'application/pdf',
-        'charset': '',
-        'note': '',
         'tags': [],
+        'collections': [],
         'relations': {},
     }
     zot.upload_attachments([attachment], parent_item_key)
@@ -1395,10 +1400,11 @@ Differences from the web API
   them to :py:meth:`Zotero.create_items()`, using :py:meth:`Zotero.item_types()` and
   :py:meth:`Zotero.item_type_fields()` to discover the valid fields. Calling it in local
   mode raises :py:class:`CallDoesNotExistError`.
-* For the same reason :py:meth:`Zotero.attachment_simple()` and
-  :py:meth:`Zotero.attachment_both()`, which build an attachment template internally, are
-  unavailable. Use :py:meth:`Zotero.upload_attachments()` with a hand-built attachment
-  dict instead: see :ref:`localapi-howto`.
+* :py:meth:`Zotero.attachment_simple()` and :py:meth:`Zotero.attachment_both()` work
+  in local mode: an attachment's shape is fully determined by the attachment contract,
+  so Pyzotero builds the template locally instead of fetching one from ``/items/new``.
+  Hand-built payloads passed to :py:meth:`Zotero.upload_attachments()` are normalised
+  the same way (missing ``itemType`` is supplied; keys are ordered for the local API).
 * Keyed writes require a concurrency precondition: either a ``version`` on each object,
   which objects retrieved from the API already carry, or an explicit ``last_modified``
   argument. Payloads built by hand without either are rejected.

@@ -105,11 +105,24 @@ class Zupload:
         whose ``filename`` contains a directory path ("Stored-file filename
         cannot contain a directory path"), so the outgoing copy contains the
         basename only. See #341.
+
+        Hand-built attachment dicts are also normalised here: the local API
+        processes JSON properties in key order and maps ``filename`` to the
+        attachment ``path``, which requires ``linkMode`` to be set first
+        ("Link mode must be set before setting attachment path" otherwise),
+        and rejects items without an ``itemType``. The web API is
+        order-insensitive, so the normalisation is unconditional.
         """
+        normalised: JsonDict = {"itemType": item.get("itemType", "attachment")}
+        if link_mode := item.get("linkMode"):
+            normalised["linkMode"] = link_mode
         filename = item.get("filename")
-        if not filename:
-            return item
-        return {**item, "filename": Path(filename).name}
+        for key, value in item.items():
+            if key not in ("itemType", "linkMode", "filename"):
+                normalised[key] = value
+        if filename:
+            normalised["filename"] = Path(filename).name
+        return normalised
 
     def _create_prelim(self) -> dict | None:
         """Step 0: Register intent to upload files."""

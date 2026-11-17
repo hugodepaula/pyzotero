@@ -1060,11 +1060,9 @@ class Zotero:
             # not have /items/new. Thus there is no fallback here.
             msg = (
                 "The local Zotero API doesn't implement the /items/new "
-                "template endpoint, so item_template() (and the "
-                "attachment_simple() / attachment_both() methods that rely on "
-                "it) are unavailable in local mode. Build the item dict "
-                "directly and pass it to create_items(), or to "
-                "upload_attachments() for a file attachment. Item types and "
+                "template endpoint, so item_template() is unavailable for "
+                "regular item types in local mode. Build the item dict "
+                "directly and pass it to create_items(). Item types and "
                 "fields are available via item_types() and item_type_fields()."
             )
             raise ze.CallDoesNotExistError(msg) from None
@@ -1075,6 +1073,18 @@ class Zotero:
 
         Types: imported_file, imported_url, linked_file, linked_url
         """
+        if self.local:
+            # The local API has no /items/new endpoint to fetch a template
+            # from, and an attachment's shape is fully determined by the
+            # attachment contract, so build the minimal template inline.
+            # Zupload._outgoing() normalises the payload the rest of the way.
+            return {
+                "itemType": "attachment",
+                "linkMode": attachment_type,
+                "tags": [],
+                "collections": [],
+                "relations": {},
+            }
         return self.item_template("attachment", linkmode=attachment_type)
 
     def _attachment(
