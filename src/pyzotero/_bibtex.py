@@ -6,18 +6,61 @@ from dataclasses import dataclass
 from functools import cached_property
 
 import bibtexparser
+from bibtexparser.middlewares import NormalizeFieldKeys, default_parse_stack
+from bibtexparser.model import DuplicateBlockKeyBlock, Entry
+
+# BibTeX styles define month macros such as "may". bibtexparser keeps a macro
+# that the source does not define as its name.
+_MONTHS = {
+    name[:3].lower(): name
+    for name in (
+        "January",
+        "February",
+        "March",
+        "April",
+        "May",
+        "June",
+        "July",
+        "August",
+        "September",
+        "October",
+        "November",
+        "December",
+    )
+}
+
+
+def _as_dict(entry: Entry) -> dict[str, str]:
+    fields = {field.key: str(field.value) for field in entry.fields}
+    if "month" in fields:
+        fields["month"] = _MONTHS.get(fields["month"].lower(), fields["month"])
+    return {"ID": entry.key, "ENTRYTYPE": entry.entry_type, **fields}
 
 
 def parse_bibtex(text: str) -> list[dict[str, str]]:
     """Parse BibTeX source into a list of entries, with month macros expanded.
 
     Each entry is a dict of its fields, with the citation key in ``ID`` and the
-    entry type in ``ENTRYTYPE``.
+    entry type in ``ENTRYTYPE``. Field names are in lower case. An entry with
+    the same key as an earlier entry is kept.
     """
-    parser = bibtexparser.bparser.BibTexParser(
-        common_strings=True, ignore_nonstandard_types=False
+    library = bibtexparser.parse_string(
+        text, parse_stack=[*default_parse_stack(), NormalizeFieldKeys()]
     )
-    return parser.parse(text).entries
+    strings = "".join(f"{string.raw}\n" for string in library.strings)
+    entries = []
+    for block in library.blocks:
+        if isinstance(block, Entry):
+            entries.append(_as_dict(block))
+        elif (
+            isinstance(block, DuplicateBlockKeyBlock)
+            and isinstance(block.ignore_error_block, Entry)
+            and block.ignore_error_block.raw
+        ):
+            # bibtexparser does not apply the parse stack to a duplicate.
+            # Parse the duplicate again, with the string definitions.
+            entries.extend(parse_bibtex(strings + block.ignore_error_block.raw))
+    return entries
 
 
 @dataclass(frozen=True)
